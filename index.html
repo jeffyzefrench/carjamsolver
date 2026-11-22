@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1e293b" />
+    <meta
+      name="description"
+      content="Ad-free 2.5D/3D Car Jam & Bus Jam Traffic Puzzle PWA with 50+ verified levels and free continues."
+    />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.svg" />
+    <title>Car Jam Solver 3D</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="canvas-host" aria-label="3D Car Jam Game Board"></div>
+
+      <!-- Top HUD Bar -->
+      <header class="hud-top">
+        <div class="hud-row">
+          <button
+            id="btn-levels"
+            type="button"
+            class="pill-btn level-pill"
+            aria-label="Open 50-Level Selector"
+          >
+            <span class="pill-label">LEVEL</span>
+            <span id="hud-level-num" class="pill-value">1 / 50</span>
+            <span class="chevron" aria-hidden="true">▾</span>
+          </button>
+
+          <div class="status-cluster">
+            <div class="stat-chip" title="Passengers remaining in queue">
+              <span class="stat-icon" aria-hidden="true">🧍</span>
+              <span id="hud-passengers">0</span>
+            </div>
+            <div class="stat-chip" title="Moves taken">
+              <span class="stat-icon" aria-hidden="true">🚗</span>
+              <span id="hud-moves">0</span>
+            </div>
+            <button
+              id="btn-sound"
+              type="button"
+              class="icon-btn"
+              aria-label="Toggle Sound Effects"
+            >
+              🔊
+            </button>
+          </div>
+        </div>
+
+        <div id="hud-banner" class="mechanic-banner">
+          <span id="hud-level-title" class="banner-title">First Shift</span>
+          <span id="hud-level-subtitle" class="banner-sub"
+            >Tap unblocked cars to match waiting passengers</span
+          >
+        </div>
+
+        <!-- Upcoming queue preview strip -->
+        <div class="queue-preview" aria-label="Next passenger colors">
+          <span class="queue-label">NEXT</span>
+          <div id="hud-queue-dots" class="queue-dots"></div>
+        </div>
+      </header>
+
+      <!-- Floating Toast for quick feedback -->
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <!-- Bottom Ad-Free Helpers Bar -->
+      <footer class="hud-bottom" aria-label="Free Game Helpers">
+        <button id="btn-undo" type="button" class="helper-btn">
+          <span class="helper-icon" aria-hidden="true">↩️</span>
+          <span class="helper-text">Undo</span>
+          <span class="free-badge">FREE</span>
+        </button>
+        <button id="btn-vip" type="button" class="helper-btn">
+          <span class="helper-icon" aria-hidden="true">🅿️</span>
+          <span class="helper-text">+1 VIP Slot</span>
+          <span class="free-badge">FREE</span>
+        </button>
+        <button id="btn-shuffle" type="button" class="helper-btn">
+          <span class="helper-icon" aria-hidden="true">🔀</span>
+          <span class="helper-text">Resort Queue</span>
+          <span class="free-badge">FREE</span>
+        </button>
+        <button id="btn-restart" type="button" class="helper-btn">
+          <span class="helper-icon" aria-hidden="true">🔄</span>
+          <span class="helper-text">Restart</span>
+          <span class="free-badge">FREE</span>
+        </button>
+      </footer>
+
+      <!-- Modal 1: Out of Holding Space (Ad-Free Continue / Restart) -->
+      <dialog id="dialog-stuck" aria-labelledby="stuck-title">
+        <div class="modal-card">
+          <div class="modal-emoji" aria-hidden="true">🚦</div>
+          <h2 id="stuck-title">Holding Slots Full!</h2>
+          <p>
+            No docked vehicle matches the next passenger in line. Keep playing or
+            try a fresh start — always 100% ad-free.
+          </p>
+          <div class="modal-actions">
+            <button
+              id="btn-stuck-continue"
+              type="button"
+              class="btn-primary"
+              autofocus
+            >
+              Continue for Free (+1 VIP Slot / Clear Car)
+            </button>
+            <button id="btn-stuck-undo" type="button" class="btn-secondary">
+              Undo Last Move (Free)
+            </button>
+            <button id="btn-stuck-restart" type="button" class="btn-ghost">
+              Restart Level (Free)
+            </button>
+          </div>
+        </div>
+      </dialog>
+
+      <!-- Modal 2: Level Complete -->
+      <dialog id="dialog-win" aria-labelledby="win-title">
+        <div class="modal-card">
+          <div class="modal-emoji" aria-hidden="true">🏆</div>
+          <h2 id="win-title">Lot Cleared!</h2>
+          <p id="win-summary">
+            Every passenger boarded smoothly in 0 moves.
+          </p>
+          <div class="modal-actions">
+            <button
+              id="btn-win-next"
+              type="button"
+              class="btn-primary"
+              autofocus
+            >
+              Next Level →
+            </button>
+            <button id="btn-win-replay" type="button" class="btn-ghost">
+              Replay Level
+            </button>
+          </div>
+        </div>
+      </dialog>
+
+      <!-- Modal 3: 50+ Level Selector -->
+      <dialog
+        id="dialog-levels"
+        closedby="any"
+        aria-labelledby="levels-title"
+      >
+        <div class="modal-card modal-wide">
+          <div class="modal-header">
+            <h2 id="levels-title">Select Level (1–50+)</h2>
+            <button
+              id="btn-levels-close"
+              type="button"
+              class="icon-btn"
+              aria-label="Close Level Selector"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="levels-toolbar">
+            <label class="toggle-label">
+              <input id="chk-unlock-all" type="checkbox" />
+              <span>Unlock all 50 levels (Free Sandbox)</span>
+            </label>
+          </div>
+
+          <div class="tier-legend">
+            <span>1–5: Cars</span>
+            <span>6–12: Vans &amp; Buses</span>
+            <span>13–20: Tunnels</span>
+            <span>21–30: Mystery (?)</span>
+            <span>31–40: Frozen</span>
+            <span>41–50+: Boss Jams</span>
+          </div>
+
+          <div id="levels-grid" class="levels-grid"></div>
+        </div>
+      </dialog>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

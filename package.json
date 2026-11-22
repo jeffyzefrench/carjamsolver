@@ -1,0 +1,25 @@
+{
+  "name": "car-jam-solver",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ad-free 3D/2.5D Car Jam / Bus Jam puzzle Progressive Web App with 50+ verified solvable levels.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.3",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.0",
+    "vitest": "^2.1.5"
+  }
+}
