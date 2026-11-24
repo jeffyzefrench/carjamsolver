@@ -4,7 +4,7 @@ import {
   BoardedPassengerEvent,
   TapResult,
 } from '../game/BoardEngine';
-import { COLOR_PALETTE, VehicleState } from '../game/types';
+import { COLOR_PALETTE, VehicleState, getLevelTheme } from '../game/types';
 import {
   CELL_SIZE,
   VehicleMeshFactory,
@@ -97,6 +97,9 @@ export class SceneManager {
   private baseCameraLookAt = new THREE.Vector3();
 
   private queueCount = 0;
+  private carouselGroup: THREE.Group | null = null;
+  private carouselAngle = 0;
+  private carouselTargetAngle = 0;
 
   constructor(
     container: HTMLElement,
@@ -107,9 +110,10 @@ export class SceneManager {
     this.engine = engine;
     this.callbacks = callbacks;
 
+    const theme = getLevelTheme(engine.level.levelNumber);
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#0f172a');
-    this.scene.fog = new THREE.Fog('#0f172a', 26, 48);
+    this.scene.background = new THREE.Color(theme.sky);
+    this.scene.fog = new THREE.Fog(theme.sky, 55, 95);
 
     const w = container.clientWidth || window.innerWidth;
     const h = container.clientHeight || window.innerHeight;
@@ -141,17 +145,17 @@ export class SceneManager {
   }
 
   private setupLights(): void {
-    const hemi = new THREE.HemisphereLight('#e0f2fe', '#1e293b', 0.95);
+    const hemi = new THREE.HemisphereLight('#ffffff', '#475569', 1.25);
     this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight('#fffbeb', 1.65);
+    const sun = new THREE.DirectionalLight('#fffbeb', 1.75);
     sun.position.set(9, 18, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
     sun.shadow.camera.near = 2;
-    sun.shadow.camera.far = 45;
-    const d = 13;
+    sun.shadow.camera.far = 50;
+    const d = 15;
     sun.shadow.camera.left = -d;
     sun.shadow.camera.right = d;
     sun.shadow.camera.top = d;
@@ -159,7 +163,12 @@ export class SceneManager {
     sun.shadow.bias = -0.0005;
     this.scene.add(sun);
 
-    const rim = new THREE.DirectionalLight('#60a5fa', 0.4);
+    // Front/top fill light so boarding sidewalk & passengers are always bright and readable
+    const fill = new THREE.DirectionalLight('#f8fafc', 0.65);
+    fill.position.set(0, 12, -12);
+    this.scene.add(fill);
+
+    const rim = new THREE.DirectionalLight('#93c5fd', 0.35);
     rim.position.set(-10, 8, -10);
     this.scene.add(rim);
   }
@@ -280,11 +289,16 @@ export class SceneManager {
 
   private buildEnvironment(): void {
     const { cols, rows, lotW, lotD, minZ, maxZ } = this.getBoardMetrics();
+    const theme = getLevelTheme(this.engine.level.levelNumber);
+
+    this.scene.background = new THREE.Color(theme.sky);
+    this.scene.fog = new THREE.Fog(theme.sky, 55, 95);
+    this.carouselGroup = null;
 
     // Base plaza ground
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(80, 80),
-      new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.95 })
+      new THREE.PlaneGeometry(90, 90),
+      new THREE.MeshStandardMaterial({ color: theme.ground, roughness: 0.92 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.14;
@@ -296,7 +310,7 @@ export class SceneManager {
     const roadD = lotD + 2.4;
     const roadMesh = new THREE.Mesh(
       new THREE.BoxGeometry(roadW, 0.12, roadD),
-      new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.85 })
+      new THREE.MeshStandardMaterial({ color: theme.road, roughness: 0.85 })
     );
     roadMesh.position.set(0, -0.07, this.gridCenterZ);
     roadMesh.receiveShadow = true;
@@ -308,7 +322,7 @@ export class SceneManager {
     );
     const borderLines = new THREE.LineSegments(
       borderGeo,
-      new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.35 })
+      new THREE.LineBasicMaterial({ color: '#e2e8f0', transparent: true, opacity: 0.4 })
     );
     borderLines.position.set(0, 0.0, this.gridCenterZ);
     this.envGroup.add(borderLines);
@@ -316,7 +330,7 @@ export class SceneManager {
     // Elevated Parking Lot Slab
     const lotSlab = new THREE.Mesh(
       new THREE.BoxGeometry(lotW + 0.16, 0.12, lotD + 0.16),
-      new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.78 })
+      new THREE.MeshStandardMaterial({ color: theme.lotSlab, roughness: 0.78 })
     );
     lotSlab.position.set(0, -0.04, this.gridCenterZ);
     lotSlab.receiveShadow = true;
@@ -325,8 +339,8 @@ export class SceneManager {
     // Checkerboard / parking cell tiles for ultra crisp grid readability
     const tileGeo = new THREE.PlaneGeometry(CELL_SIZE * 0.9, CELL_SIZE * 0.9);
     tileGeo.rotateX(-Math.PI / 2);
-    const matA = new THREE.MeshStandardMaterial({ color: '#3f4b5e', roughness: 0.85 });
-    const matB = new THREE.MeshStandardMaterial({ color: '#46546a', roughness: 0.85 });
+    const matA = new THREE.MeshStandardMaterial({ color: theme.tileA, roughness: 0.85 });
+    const matB = new THREE.MeshStandardMaterial({ color: theme.tileB, roughness: 0.85 });
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const tile = new THREE.Mesh(tileGeo, (x + y) % 2 === 0 ? matA : matB);
@@ -337,30 +351,80 @@ export class SceneManager {
       }
     }
 
-    // Passenger Boarding Sidewalk at the top
+    // Passenger Boarding Sidewalk at the top (light-colored for high passenger contrast)
     const sidewalkZ = minZ - 3.65;
-    const sidewalkW = Math.max(lotW + 2.4, 10.6);
+    const sidewalkW = Math.max(lotW + 2.6, 11.2);
+    const sidewalkMat = new THREE.MeshStandardMaterial({
+      color: theme.sidewalk,
+      roughness: 0.65,
+    });
     const sidewalk = new THREE.Mesh(
-      new THREE.BoxGeometry(sidewalkW, 0.22, 1.35),
-      new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.72 })
+      new THREE.BoxGeometry(sidewalkW, 0.22, 1.4),
+      sidewalkMat
     );
     sidewalk.position.set(0, 0.05, sidewalkZ);
     sidewalk.receiveShadow = true;
     this.envGroup.add(sidewalk);
 
+    const feederLanes = this.engine.level.feederLanes;
+    if (feederLanes === 3) {
+      // Top-center escalator/bridge feeding into the rotating carousel
+      const topLane = new THREE.Mesh(
+        new THREE.BoxGeometry(1.3, 0.22, 3.2),
+        sidewalkMat
+      );
+      topLane.position.set(0, 0.05, sidewalkZ - 2.1);
+      topLane.receiveShadow = true;
+      this.envGroup.add(topLane);
+    }
+
+    if (feederLanes >= 2) {
+      // 3D Rotating Boarding Carousel at the top-center gate
+      const carousel = new THREE.Group();
+      carousel.position.set(0, 0.16, sidewalkZ);
+
+      const disc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.95, 1.0, 0.12, 24),
+        new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.5 })
+      );
+      disc.receiveShadow = true;
+      carousel.add(disc);
+
+      const spokeMat = new THREE.MeshStandardMaterial({
+        color: theme.curb,
+        roughness: 0.4,
+      });
+      const spoke1 = new THREE.Mesh(
+        new THREE.BoxGeometry(1.75, 0.04, 0.12),
+        spokeMat
+      );
+      spoke1.position.y = 0.065;
+      carousel.add(spoke1);
+
+      const spoke2 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.04, 1.75),
+        spokeMat
+      );
+      spoke2.position.y = 0.065;
+      carousel.add(spoke2);
+
+      this.envGroup.add(carousel);
+      this.carouselGroup = carousel;
+    }
+
     // Curb accent along sidewalk edge
     const curb = new THREE.Mesh(
       new THREE.BoxGeometry(sidewalkW, 0.08, 0.12),
-      new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.5 })
+      new THREE.MeshStandardMaterial({ color: theme.curb, roughness: 0.5 })
     );
-    curb.position.set(0, 0.17, sidewalkZ + 0.65);
+    curb.position.set(0, 0.17, sidewalkZ + 0.68);
     this.envGroup.add(curb);
 
-    // Decorative corner trees/bollards outside the road for visual warmth
+    // Decorative corner trees/bollards outside the road
     const postGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.55, 10);
     const treeTopGeo = new THREE.SphereGeometry(0.45, 12, 10);
     const trunkMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.9 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: '#16a34a', roughness: 0.75 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: theme.foliage, roughness: 0.72 });
     const cornerOffsets = [
       [-roadW / 2 - 0.8, minZ - 0.6],
       [roadW / 2 + 0.8, minZ - 0.6],
@@ -506,16 +570,49 @@ export class SceneManager {
     this.clearGroup(this.passengersGroup);
     const { minZ } = this.getBoardMetrics();
     const sidewalkZ = minZ - 3.65;
-    const maxShown = Math.min(20, this.engine.passengerQueue.length);
+    const lanes = this.engine.level.feederLanes;
+    const maxShown = Math.min(24, this.engine.passengerQueue.length);
     this.queueCount = maxShown;
 
+    if (lanes === 1) {
+      for (let i = 0; i < maxShown; i++) {
+        const color = this.engine.passengerQueue[i];
+        const meta = COLOR_PALETTE[color];
+        const fig = createPassengerFigure(meta.hex, meta.lightHex);
+        const px = -4.2 + i * 0.48;
+        fig.position.set(px, 0.16, sidewalkZ);
+        fig.scale.setScalar(i === 0 ? 1.2 : 0.98);
+        this.passengersGroup.add(fig);
+      }
+      return;
+    }
+
+    // Multi-side feeder lanes converging on the center Rotating Carousel
+    const laneRanks = [0, 0, 0];
     for (let i = 0; i < maxShown; i++) {
       const color = this.engine.passengerQueue[i];
       const meta = COLOR_PALETTE[color];
       const fig = createPassengerFigure(meta.hex, meta.lightHex);
-      const px = -4.2 + i * 0.48;
-      fig.position.set(px, 0.16, sidewalkZ);
-      fig.scale.setScalar(i === 0 ? 1.15 : 0.95);
+
+      if (i === 0) {
+        // Active passenger stands right on the rotating carousel center
+        fig.position.set(0, 0.23, sidewalkZ);
+        fig.scale.setScalar(1.25);
+      } else {
+        const lane = (i - 1) % lanes;
+        const rank = laneRanks[lane]++;
+        if (lane === 0) {
+          // Left sidewalk lane
+          fig.position.set(-1.35 - rank * 0.52, 0.16, sidewalkZ);
+        } else if (lane === 1) {
+          // Right sidewalk lane
+          fig.position.set(1.35 + rank * 0.52, 0.16, sidewalkZ);
+        } else {
+          // Top-center lane approaching downward
+          fig.position.set(0, 0.16, sidewalkZ - 1.25 - rank * 0.52);
+        }
+        fig.scale.setScalar(0.98);
+      }
       this.passengersGroup.add(fig);
     }
   }
@@ -655,7 +752,11 @@ export class SceneManager {
 
     const { minZ } = this.getBoardMetrics();
     const sidewalkZ = minZ - 3.65;
-    const startPos = new THREE.Vector3(-4.2, 0.16, sidewalkZ);
+    const isCarousel = this.engine.level.feederLanes >= 2;
+    const startPos = new THREE.Vector3(isCarousel ? 0 : -4.2, isCarousel ? 0.23 : 0.16, sidewalkZ);
+    if (isCarousel) {
+      this.carouselTargetAngle += Math.PI / 2;
+    }
 
     const slotPos =
       ev.vehicle.dockSlotIndex !== null
@@ -823,11 +924,16 @@ export class SceneManager {
       }
     }
 
-    // Gentle bounce on front queue passenger
+    // Gentle bounce on front queue passenger & smooth carousel rotation
     if (this.queueCount > 0 && this.passengersGroup.children.length > 0) {
       const t = this.clock.elapsedTime;
       const first = this.passengersGroup.children[0];
-      first.position.y = 0.16 + Math.abs(Math.sin(t * 5)) * 0.08;
+      const baseY = this.engine.level.feederLanes >= 2 ? 0.23 : 0.16;
+      first.position.y = baseY + Math.abs(Math.sin(t * 5)) * 0.08;
+    }
+    if (this.carouselGroup) {
+      this.carouselAngle += (this.carouselTargetAngle - this.carouselAngle) * Math.min(1, dt * 10);
+      this.carouselGroup.rotation.y = this.carouselAngle;
     }
 
     // Micro camera shake on bump

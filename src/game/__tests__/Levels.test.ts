@@ -93,8 +93,8 @@ function solveLevelWithBaseSlots(level: LevelConfig): boolean {
   return search(0);
 }
 
-describe('50-Level Campaign Generator & Solvability', () => {
-  it('generates 50 levels with exact passenger-to-seat color parity and zero overlaps', () => {
+describe('150-Level Campaign Generator & Solvability', () => {
+  it('generates 150 levels with exact passenger-to-seat color parity and zero overlaps', () => {
     for (let lvl = 1; lvl <= TOTAL_CAMPAIGN_LEVELS; lvl++) {
       const level = generateLevel(lvl);
       const occupied = new Set<string>();
@@ -170,7 +170,7 @@ describe('50-Level Campaign Generator & Solvability', () => {
     }
   });
 
-  it('proves all 50 levels are solvable with standard 5 holding slots and zero helpers', () => {
+  it('proves all 150 levels are solvable with standard 5 holding slots and zero helpers', () => {
     const failedLevels: number[] = [];
     for (let lvl = 1; lvl <= TOTAL_CAMPAIGN_LEVELS; lvl++) {
       const level = generateLevel(lvl);

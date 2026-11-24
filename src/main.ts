@@ -260,6 +260,10 @@ function renderLevelGrid(): void {
       tagSpan.textContent = 'Ice';
     } else if (i <= 50) {
       tagSpan.textContent = 'Boss';
+    } else if (i <= 100) {
+      tagSpan.textContent = 'Metro';
+    } else if (i <= 150) {
+      tagSpan.textContent = 'Grand';
     } else {
       tagSpan.textContent = 'End';
     }

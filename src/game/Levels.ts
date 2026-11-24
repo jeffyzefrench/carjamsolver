@@ -148,21 +148,57 @@ function getTierSpec(levelNumber: number): TierSpec {
       subtitle: 'Clear other cars to crack the ice counters',
     };
   }
+  if (levelNumber <= 50) {
+    return {
+      cols: 9,
+      rows: 10,
+      numColors: levelNumber >= 46 ? 8 : 7,
+      targetVehicles: Math.min(25, 19 + Math.floor((levelNumber - 41) * 0.6)),
+      vanChance: 0.26,
+      busChance: 0.24,
+      tunnelCount: 2,
+      tunnelQueueSize: 3,
+      mysteryRatio: 0.25,
+      frozenTarget: 3,
+      windowSize: 3,
+      mechanics: ['cars', 'vans-buses', 'tunnels', 'mystery', 'frozen', 'master'],
+      title: 'Rush Hour Boss',
+      subtitle: '3-lane rotating carousel + all mechanics active!',
+    };
+  }
+  if (levelNumber <= 100) {
+    return {
+      cols: 9,
+      rows: 10,
+      numColors: 8,
+      targetVehicles: Math.min(26, 21 + Math.floor((levelNumber - 51) / 10)),
+      vanChance: 0.27,
+      busChance: 0.25,
+      tunnelCount: levelNumber >= 75 ? 3 : 2,
+      tunnelQueueSize: 3,
+      mysteryRatio: 0.26,
+      frozenTarget: 3,
+      windowSize: 3,
+      mechanics: ['cars', 'vans-buses', 'tunnels', 'mystery', 'frozen', 'master'],
+      title: `Metro Overload #${levelNumber}`,
+      subtitle: 'Rotating multi-lane carousel & deep tunnel chains!',
+    };
+  }
   return {
-    cols: 9,
+    cols: 10,
     rows: 10,
-    numColors: levelNumber >= 46 ? 8 : 7,
-    targetVehicles: Math.min(25, 19 + Math.floor((levelNumber - 41) * 0.6)),
-    vanChance: 0.26,
-    busChance: 0.24,
-    tunnelCount: 2,
+    numColors: 8,
+    targetVehicles: Math.min(28, 23 + Math.floor((levelNumber - 101) / 12)),
+    vanChance: 0.28,
+    busChance: 0.26,
+    tunnelCount: 3,
     tunnelQueueSize: 3,
-    mysteryRatio: 0.25,
-    frozenTarget: 3,
+    mysteryRatio: 0.28,
+    frozenTarget: 4,
     windowSize: 3,
     mechanics: ['cars', 'vans-buses', 'tunnels', 'mystery', 'frozen', 'master'],
-    title: levelNumber <= 50 ? 'Rush Hour Boss' : `Endless Jam #${levelNumber}`,
-    subtitle: 'All mechanics active — plan your holding slots wisely!',
+    title: levelNumber <= 150 ? `Grandmaster Jam #${levelNumber}` : `Endless Jam #${levelNumber}`,
+    subtitle: 'Maximum 10×10 grid, 3 tunnels & rotating carousel!',
   };
 }
 
@@ -647,6 +683,9 @@ export function generateLevel(levelNumber: number): LevelConfig {
     rng
   );
 
+  const feederLanes: 1 | 2 | 3 =
+    levelNumber < 15 ? 1 : levelNumber < 40 ? 2 : 3;
+
   return {
     levelNumber,
     title: spec.title,
@@ -655,6 +694,7 @@ export function generateLevel(levelNumber: number): LevelConfig {
     rows: spec.rows,
     baseSlots: 5,
     maxVipSlots: 2,
+    feederLanes,
     mechanics: spec.mechanics,
     vehicles: draftVehicles,
     tunnels,
@@ -662,7 +702,7 @@ export function generateLevel(levelNumber: number): LevelConfig {
   };
 }
 
-export const TOTAL_CAMPAIGN_LEVELS = 50;
+export const TOTAL_CAMPAIGN_LEVELS = 150;
 
 export function getAllCampaignLevels(): LevelConfig[] {
   const list: LevelConfig[] = [];
